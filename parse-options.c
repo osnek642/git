@@ -68,6 +68,23 @@ static char *fix_filename(const char *prefix, const char *file)
 		return prefix_filename_except_for_dash(prefix, file);
 }
 
+static intmax_t get_int_value(const struct option *opt)
+{
+	switch (opt->precision) {
+	case sizeof(int8_t):
+		return *(int8_t *)opt->value;
+	case sizeof(int16_t):
+		return *(int16_t *)opt->value;
+	case sizeof(int32_t):
+		return *(int32_t *)opt->value;
+	case sizeof(int64_t):
+		return *(int64_t *)opt->value;
+	default:
+		optbug(opt, "has invalid precision");
+		BUG("invalid 'struct option'");
+	}
+}
+
 static enum parse_opt_result do_get_value(struct parse_opt_ctx_t *p,
 					  const struct option *opt,
 					  enum opt_parsed flags,
@@ -266,8 +283,8 @@ static enum parse_opt_result do_get_value(struct parse_opt_ctx_t *p,
 }
 
 struct parse_opt_cmdmode_list {
-	int value, *value_ptr;
-	const struct option *opt;
+	intmax_t value;
+	const struct option *opt, *reference_opt;
 	const char *arg;
 	enum opt_parsed flags;
 	struct parse_opt_cmdmode_list *next;
@@ -280,19 +297,18 @@ static void build_cmdmode_list(struct parse_opt_ctx_t *ctx,
 
 	for (; opts->type != OPTION_END; opts++) {
 		struct parse_opt_cmdmode_list *elem = ctx->cmdmode_list;
-		int *value_ptr = opts->value;
 
-		if (!(opts->flags & PARSE_OPT_CMDMODE) || !value_ptr)
+		if (!(opts->flags & PARSE_OPT_CMDMODE) || !opts->value)
 			continue;
 
-		while (elem && elem->value_ptr != value_ptr)
+		while (elem && elem->reference_opt->value != opts->value)
 			elem = elem->next;
 		if (elem)
 			continue;
 
 		CALLOC_ARRAY(elem, 1);
-		elem->value_ptr = value_ptr;
-		elem->value = *value_ptr;
+		elem->reference_opt = opts;
+		elem->value = get_int_value(opts);
 		elem->next = ctx->cmdmode_list;
 		ctx->cmdmode_list = elem;
 	}
@@ -317,7 +333,9 @@ static enum parse_opt_result get_value(struct parse_opt_ctx_t *p,
 	char *opt_name, *other_opt_name;
 
 	for (; elem; elem = elem->next) {
-		if (*elem->value_ptr == elem->value)
+		intmax_t new_value = get_int_value(elem->reference_opt);
+
+		if (new_value == elem->value)
 			continue;
 
 		if (elem->opt &&
@@ -327,7 +345,7 @@ static enum parse_opt_result get_value(struct parse_opt_ctx_t *p,
 		elem->opt = opt;
 		elem->arg = arg;
 		elem->flags = flags;
-		elem->value = *elem->value_ptr;
+		elem->value = new_value;
 	}
 
 	if (result || !elem)
