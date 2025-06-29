@@ -85,6 +85,36 @@ static intmax_t get_int_value(const struct option *opt)
 	}
 }
 
+static enum parse_opt_result set_int_value(const struct option *opt,
+					   enum opt_parsed flags,
+					   intmax_t value)
+{
+	switch (opt->precision) {
+	case sizeof(int8_t):
+		*(int8_t *)opt->value = value;
+		return 0;
+	case sizeof(int16_t):
+		*(int16_t *)opt->value = value;
+		return 0;
+	case sizeof(int32_t):
+		*(int32_t *)opt->value = value;
+		return 0;
+	case sizeof(int64_t):
+		*(int64_t *)opt->value = value;
+		return 0;
+	default:
+		BUG("invalid precision for option %s", optname(opt, flags));
+	}
+}
+
+static int signed_int_fits(intmax_t value, size_t size)
+{
+	size_t bits = size * CHAR_BIT;
+	intmax_t upper_bound = INTMAX_MAX >> (bitsizeof(intmax_t) - bits);
+	intmax_t lower_bound = -upper_bound - 1;
+	return lower_bound <= value && value <= upper_bound;
+}
+
 static enum parse_opt_result do_get_value(struct parse_opt_ctx_t *p,
 					  const struct option *opt,
 					  enum opt_parsed flags,
@@ -133,8 +163,7 @@ static enum parse_opt_result do_get_value(struct parse_opt_ctx_t *p,
 		return 0;
 
 	case OPTION_SET_INT:
-		*(int *)opt->value = unset ? 0 : opt->defval;
-		return 0;
+		return set_int_value(opt, flags, unset ? 0 : opt->defval);
 
 	case OPTION_STRING:
 		if (unset)
@@ -216,23 +245,7 @@ static enum parse_opt_result do_get_value(struct parse_opt_ctx_t *p,
 			return error(_("value %s for %s not in range [%"PRIdMAX",%"PRIdMAX"]"),
 				     arg, optname(opt, flags), (intmax_t)lower_bound, (intmax_t)upper_bound);
 
-		switch (opt->precision) {
-		case 1:
-			*(int8_t *)opt->value = value;
-			return 0;
-		case 2:
-			*(int16_t *)opt->value = value;
-			return 0;
-		case 4:
-			*(int32_t *)opt->value = value;
-			return 0;
-		case 8:
-			*(int64_t *)opt->value = value;
-			return 0;
-		default:
-			BUG("invalid precision for option %s",
-			    optname(opt, flags));
-		}
+		return set_int_value(opt, flags, value);
 	}
 	case OPTION_UNSIGNED:
 	{
@@ -604,10 +617,13 @@ static void parse_options_check(const struct option *opts)
 		    opts->long_name && !(opts->flags & PARSE_OPT_NONEG))
 			optbug(opts, "OPTION_SET_INT 0 should not be negatable");
 		switch (opts->type) {
+		case OPTION_SET_INT:
+			if (!signed_int_fits(opts->defval, opts->precision))
+				optbug(opts, "has invalid defval");
+			/* fallthru */
 		case OPTION_COUNTUP:
 		case OPTION_BIT:
 		case OPTION_NEGBIT:
-		case OPTION_SET_INT:
 		case OPTION_NUMBER:
 			if ((opts->flags & PARSE_OPT_OPTARG) ||
 			    !(opts->flags & PARSE_OPT_NOARG))
