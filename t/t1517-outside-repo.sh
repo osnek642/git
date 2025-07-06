@@ -135,4 +135,11 @@ test_expect_success 'ls-files does not crash with -h' '
 	test_grep "[Uu]sage: git ls-files " usage
 '
 
+test_expect_success 'pack-refs does not crash with -h' '
+	test_expect_code 129 git pack-refs -h >usage &&
+	test_grep "[Uu]sage: git pack-refs " usage &&
+	test_expect_code 129 nongit git pack-refs -h >usage &&
+	test_grep "[Uu]sage: git pack-refs " usage
+'
+
 test_done
