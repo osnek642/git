@@ -156,4 +156,11 @@ test_expect_success 'verify-commit does not crash with -h' '
 	test_grep "[Uu]sage: git verify-commit " usage
 '
 
+test_expect_success 'verify-tag does not crash with -h' '
+	test_expect_code 129 git verify-tag -h >usage &&
+	test_grep "[Uu]sage: git verify-tag " usage &&
+	test_expect_code 129 nongit git verify-tag -h >usage &&
+	test_grep "[Uu]sage: git verify-tag " usage
+'
+
 test_done
