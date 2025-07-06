@@ -128,4 +128,11 @@ test_expect_success 'for-each-ref does not crash with -h' '
 	test_grep "[Uu]sage: git for-each-ref " usage
 '
 
+test_expect_success 'ls-files does not crash with -h' '
+	test_expect_code 129 git ls-files -h >usage &&
+	test_grep "[Uu]sage: git ls-files " usage &&
+	test_expect_code 129 nongit git ls-files -h >usage &&
+	test_grep "[Uu]sage: git ls-files " usage
+'
+
 test_done
