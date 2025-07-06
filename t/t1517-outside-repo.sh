@@ -142,4 +142,11 @@ test_expect_success 'pack-refs does not crash with -h' '
 	test_grep "[Uu]sage: git pack-refs " usage
 '
 
+test_expect_success 'send-pack does not crash with -h' '
+	test_expect_code 129 git send-pack -h >usage &&
+	test_grep "[Uu]sage: git send-pack " usage &&
+	test_expect_code 129 nongit git send-pack -h >usage &&
+	test_grep "[Uu]sage: git send-pack " usage
+'
+
 test_done
