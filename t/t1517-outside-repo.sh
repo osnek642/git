@@ -149,4 +149,11 @@ test_expect_success 'send-pack does not crash with -h' '
 	test_grep "[Uu]sage: git send-pack " usage
 '
 
+test_expect_success 'verify-commit does not crash with -h' '
+	test_expect_code 129 git verify-commit -h >usage &&
+	test_grep "[Uu]sage: git verify-commit " usage &&
+	test_expect_code 129 nongit git verify-commit -h >usage &&
+	test_grep "[Uu]sage: git verify-commit " usage
+'
+
 test_done
